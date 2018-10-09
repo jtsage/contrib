@@ -170,6 +170,7 @@ L<https://github.com/jtsage/unifi-munin-plugins>
 use warnings;
 use strict;
 use utf8;
+use Munin::Plugin;
 
 # Check dependancies
 my @errorCode;
@@ -195,9 +196,7 @@ if ( @errorCode != 0 ) {
 }
 
 # Multigraph cabability is required for this plugin
-if ( ! $ENV{'MUNIN_CAP_MULTIGRAPH'} ) {
-	die "FATAL:$me: Multigraph capability required\n";
-}
+need_multigraph();
 
 # Somewhat (in)sane defaults for host, pass, etc
 my %APIconfig = (
