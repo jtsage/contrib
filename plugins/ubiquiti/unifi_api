@@ -160,10 +160,10 @@ Most recent version available from
 
 L<https://github.com/jtsage/unifi-munin-plugins>
 
-=head1 MAGICK MARKERS
+=head1 MAGIC MARKERS
 
   #%# family=manual
-  #%# capabilities=autoconf
+  #%# capabilities=
 
 =cut
 
@@ -181,13 +181,6 @@ if (! eval {require JSON; JSON->import(); 1; } ) {
 }
 if (! eval {require WWW::Curl::Easy; 1;} ) {
 	push @errorCode, "WWW::Curl::Easy module not found";
-}
-
-# Provide autoconf info
-if ( defined($ARGV[0]) && $ARGV[0] eq "autoconf" ) {
-	push @errorCode, "Requires configuration";
-	print "no (", join(", " => @errorCode), ")\n";
-	exit(0);
 }
 
 # Fail on not found dependancies
