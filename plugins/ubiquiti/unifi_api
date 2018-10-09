@@ -96,6 +96,13 @@ By default, everything is enabled.  Set to "no" to disable
     env.enable_detail_xfer_radio yes
     # Show detailed graphs for each radio
 
+    env.use_extended_device_names yes
+    # Enable the use of extended device names -
+    # you can turn this off to shorted RRD file names IF and ONLY IF your devices and networks are
+    # uniquely named (Neither is enforced by the unifi controller software)
+    #
+    # [a/n: Added so I didn't need to rename all my RRD's when I discovered this could be an issue]
+
 
 =head1 CAPABILITIES
 
@@ -216,8 +223,8 @@ my %PluginConfig = (
 	'enable_detail_clients_type'    => env_default_bool_true('enable_detail_clients_network'),
 	'hide_empty_xfer_port'          => env_default_bool_true('hide_empty_xfer_port'),
 	'show_authorized_clients_type'  => env_default_bool_true('show_authorized_clients_type'),
+	'use_extended_device_names'     => env_default_bool_true('use_extended_device_names'),
 );
-
 
 # Set up needed API endpoints
 my %APIPoint = (
@@ -889,7 +896,7 @@ sub graph_prologue {
 sub make_data {
 	foreach my $thisDevice ( @{$APIJsonResponse{'device'}->{'data'}} ) {
 		# Grab everything we care to know about each device.
-		$Data{'device'}{ make_safe($thisDevice->{'name'}) } = {
+		$Data{'device'}{ make_safe($thisDevice->{'name'}, $thisDevice->{'serial'}) } = {
 			'label'   => $thisDevice->{'name'},
 			'users'   => ($thisDevice->{'user-num_sta'} || 0),
 			'guests'  => ($thisDevice->{'guest-num_sta'} || 0),
@@ -906,7 +913,7 @@ sub make_data {
 
 		if ( $thisDevice->{'type'} eq 'ugw' ) { # Handle firewall specially, record uplink and networks
 			foreach my $thisNet ( @{$thisDevice->{'network_table'}} ) {
-				$Data{'networks'}{ make_safe($thisNet->{'name'}) } = {
+				$Data{'networks'}{ make_safe($thisNet->{'name'}, $thisNet->{'_id'} ) } = {
 					'label' => $thisNet->{'name'},
 					'tx'    => $thisNet->{'tx_bytes'},
 					'rx'    => $thisNet->{'rx_bytes'}
@@ -938,14 +945,14 @@ sub make_data {
 					};
 				}
 			}
-			$Data{'device'}{ make_safe($thisDevice->{'name'}) }{'ports'} = \@port_list;
+			$Data{'device'}{ make_safe($thisDevice->{'name'}, $thisDevice->{'serial'}) }{'ports'} = \@port_list;
 		}
 
 		if ( $thisDevice->{'type'} eq 'uap' ) { # Handle APS specially - record radio stats
 			my @theseRadios;
 
 			foreach my $thisRadio ( @{$thisDevice->{'radio_table_stats'}} ) {
-				my $name  = make_safe( $thisRadio->{'name'} );
+				my $name  = make_safe( $thisRadio->{'name'}, "" );
 				my $label = ( $thisRadio->{'channel'} < 12 ) ? '2.4Ghz' : '5Ghz';
 
 				$_ = $thisDevice->{'stat'};
@@ -959,7 +966,7 @@ sub make_data {
 					'type'  => $label
 				};
 			}
-			$Data{'device'}{ make_safe($thisDevice->{'name'}) }{'radio'} = \@theseRadios;
+			$Data{'device'}{ make_safe($thisDevice->{'name'}, $thisDevice->{'serial'}) }{'radio'} = \@theseRadios;
 		}
 	} # END PROCESSING OF DEVICE DATA
 
@@ -987,9 +994,9 @@ sub make_data {
 
 	my @wlans;
 
-	foreach my $thisDevice ( @{$APIJsonResponse{'wlan'}->{'data'}} ) {
-		$Data{'types'}{ make_safe($thisDevice->{'name'}) } = [ $thisDevice->{'name'}, 1, 0, 0 ];
-		push @wlans, make_safe($thisDevice->{'name'});
+	foreach my $thisNet ( @{$APIJsonResponse{'wlan'}->{'data'}} ) {
+		$Data{'types'}{ make_safe($thisNet->{'name'}, "") } = [ $thisNet->{'name'}, 1, 0, 0 ];
+		push @wlans, make_safe($thisNet->{'name'}, "");
 	}
 
 	foreach ( sort @wlans ) {
@@ -1007,7 +1014,7 @@ sub make_data {
 			}
 		} else {
 			if ( $client->{"is_guest"} ) {
-				$Data{'types'}->{make_safe($client->{"essid"})}[3]++;
+				$Data{'types'}->{make_safe($client->{"essid"}, "")}[3]++;
 				$Data{'types'}->{'wifi'}[3]++;
 				$Data{'types'}->{'guest'}[3]++;
 				if ( $client->{"authorized"} ) {
@@ -1016,7 +1023,7 @@ sub make_data {
 					$Data{'types'}->{'unauth'}[3]++;
 				}
 			} else {
-				$Data{'types'}->{make_safe($client->{"essid"})}[2]++;
+				$Data{'types'}->{make_safe($client->{"essid"}, "")}[2]++;
 				$Data{'types'}->{'wifi'}[2]++;
 				$Data{'types'}->{'user'}[2]++;
 			}
@@ -1102,7 +1109,14 @@ sub fetch_data {
 }
 
 # Make field names safe, and lowercase. Sourced originally from Munin::Plugin
-sub make_safe { $_ = lc($_[0]); s/^[^a-z_]+/_/; s/\W/_/g; return ( $_ eq "root" ? "__root" : $_ ); }
+sub make_safe { 
+	my ( $name, $extraName ) = ( @_ );
+	if ( $PluginConfig{'use_extended_device_names'} && $extraName ne "" ) {
+		return clean_fieldname(lc($name) . "_" . $extraName);
+	} else {
+		return lc(clean_fieldname($name)); 
+	}
+}
 
 # Get a default from an enviromental variable - return text
 #
