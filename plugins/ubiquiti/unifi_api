@@ -96,13 +96,6 @@ By default, everything is enabled.  Set to "no" to disable
     env.enable_detail_xfer_radio yes
     # Show detailed graphs for each radio
 
-    env.use_extended_device_names yes
-    # Enable the use of extended device names -
-    # you can turn this off to shorted RRD file names IF and ONLY IF your devices and networks are
-    # uniquely named (Neither is enforced by the unifi controller software)
-    #
-    # [a/n: Added so I didn't need to rename all my RRD's when I discovered this could be an issue]
-
 
 =head1 CAPABILITIES
 
@@ -223,7 +216,6 @@ my %PluginConfig = (
 	'enable_detail_clients_type'    => env_default_bool_true('enable_detail_clients_network'),
 	'hide_empty_xfer_port'          => env_default_bool_true('hide_empty_xfer_port'),
 	'show_authorized_clients_type'  => env_default_bool_true('show_authorized_clients_type'),
-	'use_extended_device_names'     => env_default_bool_true('use_extended_device_names'),
 );
 
 # Set up needed API endpoints
@@ -1109,9 +1101,12 @@ sub fetch_data {
 }
 
 # Make field names safe, and lowercase. Sourced originally from Munin::Plugin
+# 
+# Typically, $extraName should be the MAC address of the unique ID identifier as the unifi
+# controller software does not enforce that device names or network names are unique.
 sub make_safe { 
 	my ( $name, $extraName ) = ( @_ );
-	if ( $PluginConfig{'use_extended_device_names'} && $extraName ne "" ) {
+	if ( $extraName ne "" ) {
 		return clean_fieldname(lc($name) . "_" . $extraName);
 	} else {
 		return lc(clean_fieldname($name)); 
