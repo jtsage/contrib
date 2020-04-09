@@ -86,8 +86,11 @@ stats = dict()
 stats_output = subprocess.check_output([cmd, '-c', 'iostats', '-c', 'sysstats'],
                                        universal_newlines=True).splitlines()
 
+# Split the cmd output into key/value pairs
+# Lines that can't be split into 2 individual elements by delimiter ':' will be skipped
 for line in stats_output:
-    stats[line.split(':')[0]] = int(line.split(':')[1])
+    if len(line.split(':')) == 2:
+        stats[line.split(':')[0]] = int(line.split(':')[1])
 
 print('received.value ' + str(stats['received packets']))
 print('sent.value ' + str(stats['packets sent']))
